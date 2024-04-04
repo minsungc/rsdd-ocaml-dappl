@@ -248,7 +248,7 @@ pub fn bdd_meu(
 ) -> (
     RsddExpectedUtility,
     ocaml::Pointer<RsddPartialModel>,
-    u64, u64, f64
+    u64
 ) {
     let (eu, pm, size, times_pruned, avg_size) = bdd.0.meu(
         evidence.0,
@@ -260,7 +260,7 @@ pub fn bdd_meu(
         num_vars.try_into().unwrap(),
         &wmc.0,
     );
-    (RsddExpectedUtility(eu), RsddPartialModel(pm).into(), size, times_pruned, avg_size)
+    (RsddExpectedUtility(eu), RsddPartialModel(pm).into(), times_pruned)
 }
 
 #[ocaml::func]
