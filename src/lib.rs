@@ -238,20 +238,18 @@ pub fn extract(
 }
 
 #[ocaml::func]
-#[ocaml::sig("rsdd_bdd_ptr -> rsdd_bdd_ptr -> rsdd_var_label list -> int64 -> rsdd_wmc_params_e_u -> rsdd_expected_utility * rsdd_partial_model * int * int")]
+#[ocaml::sig("rsdd_bdd_ptr -> rsdd_var_label list -> int64 -> rsdd_wmc_params_e_u -> rsdd_expected_utility * rsdd_partial_model * int")]
 pub fn bdd_meu(
     bdd: &'static RsddBddPtr,
-    evidence: &'static RsddBddPtr,
     join_vars: ocaml::List<RsddVarLabel>,
     num_vars: i64,
     wmc: &RsddWmcParamsEU,
 ) -> (
     RsddExpectedUtility,
     ocaml::Pointer<RsddPartialModel>,
-    i64, i64
+    i64
 ) {
-    let (eu, pm, size, times_pruned) = bdd.0.meu(
-        evidence.0,
+    let (eu, pm, size) = bdd.0.bb(
         &join_vars
             .into_linked_list()
             .iter()
@@ -260,7 +258,7 @@ pub fn bdd_meu(
         num_vars.try_into().unwrap(),
         &wmc.0,
     );
-    (RsddExpectedUtility(eu), RsddPartialModel(pm).into(), size, times_pruned)
+    (RsddExpectedUtility(eu), RsddPartialModel(pm).into(), size as i64)
 }
 
 #[ocaml::func]

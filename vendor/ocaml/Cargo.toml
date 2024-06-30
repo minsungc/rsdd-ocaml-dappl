@@ -32,6 +32,10 @@ features = [
     "link",
 ]
 
+[[example]]
+name = "rust"
+required-features = ["link"]
+
 [dependencies.cstr_core]
 version = "0.2"
 optional = true
@@ -41,32 +45,38 @@ version = "^0.15.1"
 optional = true
 
 [dependencies.ocaml-boxroot-sys]
-version = "0.2"
+version = "0.3.1"
 
 [dependencies.ocaml-derive]
 version = "^1.0.0-beta.5"
+path = "./derive"
 optional = true
-
-[dependencies.ocaml-interop]
-version = "0.8.8"
 
 [dependencies.ocaml-sys]
 version = ">=0.23"
+path = "./sys"
+
+[dev-dependencies]
+serial_test = "3.0.0"
 
 [features]
 bigarray-ext = ["ndarray"]
-caml-state = ["ocaml-sys/caml-state"]
 default = ["derive"]
 derive = ["ocaml-derive"]
 link = ["ocaml-sys/link"]
-no-caml-startup = ["ocaml-interop/no-caml-startup"]
+no-caml-startup = []
 no-panic-hook = []
 no-std = [
     "cstr_core/alloc",
     "no-panic-hook",
 ]
-without-ocamlopt = [
-    "ocaml-sys/without-ocamlopt",
-    "ocaml-interop/without-ocamlopt",
-    "ocaml-boxroot-sys/without-ocamlopt",
+ocaml5 = ["ocaml-sys/ocaml5"]
+without-ocamlopt = ["ocaml-sys/without-ocamlopt"]
+
+[workspace]
+members = [
+    "derive",
+    "sys",
+    "test",
+    "build",
 ]

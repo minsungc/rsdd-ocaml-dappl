@@ -204,7 +204,7 @@ pub fn ocaml_func(attribute: TokenStream, item: TokenStream) -> TokenStream {
         .filter_map(|arg| match arg {
             Some(ident) => {
                 let ident = ident.ident.clone();
-                Some(quote! { let #ident = ocaml::FromValue::from_value(unsafe { ocaml::Value::new(#ident) }); })
+                Some(quote! { let #ident = ocaml::FromValue::from_value(unsafe { ocaml::Value::new(#ident).root() }); })
             }
             None => None,
         })
@@ -219,7 +219,7 @@ pub fn ocaml_func(attribute: TokenStream, item: TokenStream) -> TokenStream {
     let inner = if returns {
         quote! {
             #[inline(always)]
-            #constness #unsafety fn inner(#gc_name: &mut ocaml::Runtime, #(#rust_args),*) -> #rust_return_type {
+            #constness #unsafety fn inner(#gc_name: &ocaml::Runtime, #(#rust_args),*) -> #rust_return_type {
                 #use_gc
                 #body
             }
@@ -227,7 +227,7 @@ pub fn ocaml_func(attribute: TokenStream, item: TokenStream) -> TokenStream {
     } else {
         quote! {
             #[inline(always)]
-            #constness #unsafety fn inner(#gc_name: &mut ocaml::Runtime, #(#rust_args),*)  {
+            #constness #unsafety fn inner(#gc_name: &ocaml::Runtime, #(#rust_args),*)  {
                 #use_gc
                 #body
             }
@@ -260,7 +260,7 @@ pub fn ocaml_func(attribute: TokenStream, item: TokenStream) -> TokenStream {
             let mut bc = item_fn.clone();
             bc.attrs.retain(|x| {
                 let s = x
-                    .path
+                    .path()
                     .segments
                     .iter()
                     .map(|x| x.ident.to_string())
@@ -485,7 +485,7 @@ fn ocaml_bytecode_func_impl(
                 Some(ident) => Some(quote! {
                     #[allow(clippy::not_unsafe_ptr_arg_deref)]
                     let #ident = ocaml::FromValue::from_value(unsafe {
-                        core::ptr::read(__ocaml_argv.add(__ocaml_arg_index as usize))
+                        Value::new(core::ptr::read(__ocaml_argv.add(__ocaml_arg_index as usize))).root()
                     });
                     __ocaml_arg_index += 1 ;
                 }),
@@ -497,7 +497,7 @@ fn ocaml_bytecode_func_impl(
             #(
                 #attr
             )*
-            pub #constness unsafe extern "C" fn #name(__ocaml_argv: *mut ocaml::Value, __ocaml_argc: i32) -> ocaml::Raw #where_clause {
+            pub #constness unsafe extern "C" fn #name(__ocaml_argv: *mut ocaml::Raw, __ocaml_argc: i32) -> ocaml::Raw #where_clause {
                 assert!(#len <= __ocaml_argc as usize, "len: {}, argc: {}", #len, __ocaml_argc);
 
                 let #gc_name = unsafe { ocaml::Runtime::recover_handle() };
@@ -516,7 +516,7 @@ fn ocaml_bytecode_func_impl(
             .filter_map(|arg| match arg {
                 Some(ident) => {
                     let ident = ident.ident.clone();
-                    Some(quote! { let #ident = ocaml::FromValue::from_value(unsafe { ocaml::Value::new(#ident) }); })
+                    Some(quote! { let #ident = ocaml::FromValue::from_value(unsafe { ocaml::Value::new(#ident).root() }); })
                 }
                 None => None,
             })
@@ -573,7 +573,7 @@ struct Attrs {
 fn attrs(attrs: &[syn::Attribute]) -> Attrs {
     let mut acc = Attrs::default();
     attrs.iter().for_each(|attr| {
-        if let syn::Meta::Path(p) = attr.parse_meta().unwrap() {
+        if let syn::Meta::Path(p) = &attr.meta {
             if let Some(ident) = p.get_ident() {
                 if ident == "float_array" {
                     if acc.unboxed {
@@ -648,13 +648,11 @@ pub fn derive_from_value(item: TokenStream) -> TokenStream {
             quote!(Self{#(#fields),*})
         };
 
-        let lt = g.lifetimes();
-        let tp = g.type_params();
-        let wh = &g.where_clause;
+        let (g_impl, g_ty, g_wh) = g.split_for_impl();
 
         // Generate FromValue for structs
         quote! {
-            unsafe impl #g ocaml::FromValue for #name<#(#lt),* #(#tp),*> #wh {
+            unsafe impl #g_impl ocaml::FromValue for #name #g_ty #g_wh {
                 fn from_value(value: ocaml::Value) -> Self {
                     unsafe {
                         #inner
@@ -738,13 +736,11 @@ pub fn derive_from_value(item: TokenStream) -> TokenStream {
                 }
             });
 
-        let lt = g.lifetimes();
-        let tp = g.type_params();
-        let wh = &g.where_clause;
+        let (g_impl, g_ty, g_wh) = g.split_for_impl();
 
         // Generate FromValue for enums
         quote! {
-            unsafe impl #g ocaml::FromValue for #name<#(#lt),* #(#tp),*> #wh {
+            unsafe impl #g_impl ocaml::FromValue for #name #g_ty #g_wh {
                 fn from_value(value: ocaml::Value) -> Self {
                     unsafe {
                         let is_block = value.is_block();
@@ -781,25 +777,28 @@ pub fn derive_to_value(item: TokenStream) -> TokenStream {
             .fields
             .iter()
             .enumerate()
-            .map(|(index, field)| match &field.ident {
-                Some(name) => {
-                    // Named fields
-                    if is_double_array_struct {
-                        quote!(value.store_double_field(#index, self.#name as f64))
-                    } else if attrs.unboxed {
-                        quote!(value = self.#name.to_value(rt))
-                    } else {
-                        quote!(value.store_field(rt, #index, &self.#name))
+            .map(|(index, field)| {
+                let index = syn::Index::from(index);
+                match &field.ident {
+                    Some(name) => {
+                        // Named fields
+                        if is_double_array_struct {
+                            quote!(value.store_double_field(#index, self.#name as f64))
+                        } else if attrs.unboxed {
+                            quote!(value = self.#name.to_value(rt))
+                        } else {
+                            quote!(value.store_field(rt, #index, &self.#name))
+                        }
                     }
-                }
-                None => {
-                    // Tuple struct
-                    if is_double_array_struct {
-                        quote!(value.store_double_field(#index, self.#index as f64))
-                    } else if attrs.unboxed {
-                        quote!(value = self.#index.to_value(rt))
-                    } else {
-                        quote!(value.store_field(rt, #index, &self.#index))
+                    None => {
+                        // Tuple struct
+                        if is_double_array_struct {
+                            quote!(value.store_double_field(#index, self.#index as f64))
+                        } else if attrs.unboxed {
+                            quote!(value = self.#index.to_value(rt))
+                        } else {
+                            quote!(value.store_field(rt, #index, &self.#index))
+                        }
                     }
                 }
             })
@@ -811,10 +810,7 @@ pub fn derive_to_value(item: TokenStream) -> TokenStream {
             quote!(0.into())
         };
         let n = fields.len();
-
-        let lt = g.lifetimes();
-        let tp = g.type_params();
-        let wh = &g.where_clause;
+        let (g_impl, g_ty, g_wh) = g.split_for_impl();
 
         let value_decl = if attrs.unboxed {
             // Only allocate a singlue value for unboxed structs
@@ -829,7 +825,7 @@ pub fn derive_to_value(item: TokenStream) -> TokenStream {
 
         // Generate ToValue for structs
         quote! {
-            unsafe impl #g ocaml::ToValue for #name<#(#lt),* #(#tp),*> #wh {
+            unsafe impl #g_impl ocaml::ToValue for #name #g_ty #g_wh {
                 fn to_value(&self, rt: &ocaml::Runtime) -> ocaml::Value {
                     unsafe {
                         #value_decl
@@ -886,7 +882,7 @@ pub fn derive_to_value(item: TokenStream) -> TokenStream {
                             if attrs.unboxed {
                                 quote!(value = #name.to_value(rt);)
                             } else {
-                                quote!(value.store_field(rt, #index, #name))
+                                quote!(value.store_field(rt, #index, &#name))
                             }
                         }
                         None => {
@@ -896,7 +892,7 @@ pub fn derive_to_value(item: TokenStream) -> TokenStream {
                             if attrs.unboxed {
                                 quote!(value = #x.to_value(rt);)
                             } else {
-                                quote!(value.store_field(rt, #index, #x))
+                                quote!(value.store_field(rt, #index, &#x))
                             }
                         }
                     })
@@ -940,13 +936,11 @@ pub fn derive_to_value(item: TokenStream) -> TokenStream {
             }
         });
 
-        let lt = g.lifetimes();
-        let tp = g.type_params();
-        let wh = &g.where_clause;
+        let (g_impl, g_ty, g_wh) = g.split_for_impl();
 
         // Generate ToValue implementation for enums
         quote! {
-            unsafe impl #g ocaml::ToValue for #name<#(#lt),* #(#tp),*> #wh {
+            unsafe impl #g_impl ocaml::ToValue for #name #g_ty #g_wh {
                 fn to_value(&self, rt: &ocaml::Runtime) -> ocaml::Value {
                     unsafe {
                         match self {

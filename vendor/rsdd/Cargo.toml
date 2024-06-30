@@ -91,7 +91,7 @@ features = ["derive"]
 optional = true
 
 [dependencies.ocaml]
-version = "^1.0.0-beta"
+git = "https://github.com/zshipko/ocaml-rs"
 
 [dependencies.serde]
 version = "1.0"
