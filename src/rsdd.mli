@@ -15,7 +15,7 @@ type rsdd_wmc_params_e_u
 external mk_bdd_builder_default_order: int64 -> rsdd_bdd_builder = "mk_bdd_builder_default_order"
 external bdd_new_var: rsdd_bdd_builder -> bool -> (int64 * rsdd_bdd_ptr) = "bdd_new_var"
 external mk_varlabel: int64 -> rsdd_var_label = "mk_varlabel"
-external extract_varlabel: int64 -> rsdd_var_label = "extract_varlabel"
+external extract_varlabel: rsdd_var_label -> int64 = "extract_varlabel"
 external bdd_var: rsdd_bdd_builder -> rsdd_var_label -> bool -> rsdd_bdd_ptr = "bdd_var"
 external bdd_ite: rsdd_bdd_builder -> rsdd_bdd_ptr -> rsdd_bdd_ptr -> rsdd_bdd_ptr -> rsdd_bdd_ptr = "bdd_ite"
 external bdd_and: rsdd_bdd_builder -> rsdd_bdd_ptr -> rsdd_bdd_ptr -> rsdd_bdd_ptr = "bdd_and"

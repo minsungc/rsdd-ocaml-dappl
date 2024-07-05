@@ -71,7 +71,7 @@ pub fn mk_varlabel(
 }
 
 #[ocaml::func]
-#[ocaml::sig("int64 -> rsdd_var_label")]
+#[ocaml::sig("rsdd_var_label -> int64")]
 pub fn extract_varlabel(
     v : RsddVarLabel
 ) -> i64 {
