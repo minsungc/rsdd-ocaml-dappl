@@ -71,6 +71,14 @@ pub fn mk_varlabel(
 }
 
 #[ocaml::func]
+#[ocaml::sig("int64 -> rsdd_var_label")]
+pub fn extract_varlabel(
+    v : RsddVarLabel
+) -> i64 {
+    v.0.value() as i64
+}
+
+#[ocaml::func]
 #[ocaml::sig("rsdd_bdd_builder -> rsdd_var_label -> bool -> rsdd_bdd_ptr")]
 pub fn bdd_var(
     builder: &'static RsddBddBuilder,
@@ -239,7 +247,7 @@ pub fn extract(
 
 
 #[ocaml::func]
-#[ocaml::sig("rsdd_bdd_ptr -> rsdd_bdd_ptr -> rsdd_var_label list -> int64 -> rsdd_wmc_params_e_u -> rsdd_expected_utility * rsdd_partial_model * int")]
+#[ocaml::sig("rsdd_bdd_ptr -> rsdd_bdd_ptr -> rsdd_var_label list -> int64 -> rsdd_wmc_params_e_u -> rsdd_expected_utility * rsdd_partial_model * int64")]
 pub fn bdd_meu_without_cache(
     bdd: &'static RsddBddPtr,
     evidence: &'static RsddBddPtr,
@@ -265,7 +273,7 @@ pub fn bdd_meu_without_cache(
 }
 
 #[ocaml::func]
-#[ocaml::sig("rsdd_bdd_ptr -> rsdd_bdd_ptr -> rsdd_var_label list -> int64 -> rsdd_wmc_params_e_u -> rsdd_expected_utility * rsdd_partial_model * int")]
+#[ocaml::sig("rsdd_bdd_ptr -> rsdd_bdd_ptr -> rsdd_var_label list -> int64 -> rsdd_wmc_params_e_u -> rsdd_expected_utility * rsdd_partial_model * int64")]
 pub fn bdd_meu(
     bdd: &'static RsddBddPtr,
     evidence: &'static RsddBddPtr,
